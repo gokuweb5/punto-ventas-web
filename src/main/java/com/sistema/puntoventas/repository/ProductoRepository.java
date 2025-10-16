@@ -1,0 +1,15 @@
+package com.sistema.puntoventas.repository;
+
+import com.sistema.puntoventas.entity.Producto;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface ProductoRepository extends JpaRepository<Producto, Integer> {
+    Optional<Producto> findByCodigo(String codigo);
+    List<Producto> findByDepartamento(String departamento);
+    List<Producto> findByCategoria(String categoria);
+}

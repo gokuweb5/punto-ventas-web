@@ -1,0 +1,243 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                    DIAGRAMA DEL SISTEMA DE INVENTARIO                        ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          ESTRUCTURA DE TABLAS                                │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+    ┌─────────────────┐
+    │   PRODUCTOS     │
+    ├─────────────────┤
+    │ IdProducto (PK) │
+    │ Codigo          │
+    │ Producto        │
+    │ Precio          │
+    │ Descuento       │
+    │ Departamento    │
+    │ Categoria       │
+    │ IdCompra        │
+    │ Imagen          │
+    │ Fecha           │
+    └────────┬────────┘
+             │
+             │ 1:1
+             │
+    ┌────────▼────────┐
+    │     BODEGA      │
+    ├─────────────────┤
+    │ Id (PK)         │
+    │ IdProducto (FK) │◄────────────┐
+    │ Existencia      │             │
+    │ Fecha           │             │
+    └─────────────────┘             │
+                                    │
+                                    │ N:1
+                                    │
+                        ┌───────────┴──────────────┐
+                        │ MOVIMIENTOS_INVENTARIO   │
+                        ├──────────────────────────┤
+                        │ IdMovimiento (PK)        │
+                        │ IdProducto (FK)          │
+                        │ TipoMovimiento           │
+                        │ Cantidad                 │
+                        │ CantidadAnterior         │
+                        │ CantidadNueva            │
+                        │ Motivo                   │
+                        │ Referencia               │
+                        │ IdUsuario (FK)           │
+                        │ Fecha                    │
+                        └──────────┬───────────────┘
+                                   │
+                                   │ N:1
+                                   │
+                        ┌──────────▼───────────┐
+                        │     USUARIOS         │
+                        ├──────────────────────┤
+                        │ IdUsuario (PK)       │
+                        │ Usuario              │
+                        │ Nombre               │
+                        │ ...                  │
+                        └──────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        FLUJO DE CREACIÓN DE PRODUCTO                         │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+    Frontend (Productos.jsx)
+         │
+         │ POST /api/productos
+         │ { codigo, producto, precio, existencia, categoria }
+         │
+         ▼
+    ProductoController.crear()
+         │
+         ▼
+    ProductoService.crearProducto()
+         │
+         ├──► 1. Crear PRODUCTO
+         │         └─► productos table
+         │
+         └──► 2. Crear BODEGA
+                   └─► bodega table (existencia inicial)
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           FLUJO DE VENTA                                     │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+    Frontend (Ventas.jsx)
+         │
+         │ POST /api/ventas
+         │ { items: [{idProducto, cantidad, precio}], idCliente }
+         │
+         ▼
+    VentaController.crear()
+         │
+         ▼
+    VentaService.procesarVenta()
+         │
+         ├──► 1. Validar Stock
+         │         └─► BodegaRepository.findByProducto_IdProducto()
+         │
+         ├──► 2. Crear VENTA
+         │         └─► ventas table
+         │
+         └──► 3. Actualizar Inventario
+                   │
+                   ▼
+              InventarioService.registrarSalida()
+                   │
+                   ├──► a) Actualizar BODEGA
+                   │         └─► bodega.existencia -= cantidad
+                   │
+                   └──► b) Registrar MOVIMIENTO
+                             └─► movimientos_inventario table
+                                  - TipoMovimiento: "VENTA"
+                                  - Referencia: ticket
+                                  - CantidadAnterior: stock previo
+                                  - CantidadNueva: stock actual
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      TIPOS DE MOVIMIENTOS                                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+    ┌─────────────────┐
+    │     ENTRADA     │  ➜  Compras, recepciones de mercancía
+    └─────────────────┘
+
+    ┌─────────────────┐
+    │     SALIDA      │  ➜  Mermas, transferencias, bajas
+    └─────────────────┘
+
+    ┌─────────────────┐
+    │      VENTA      │  ➜  Venta a cliente (automático)
+    └─────────────────┘
+
+    ┌─────────────────┐
+    │   DEVOLUCION    │  ➜  Devolución de cliente
+    └─────────────────┘
+
+    ┌─────────────────┐
+    │ AJUSTE_ENTRADA  │  ➜  Corrección positiva de inventario
+    └─────────────────┘
+
+    ┌─────────────────┐
+    │ AJUSTE_SALIDA   │  ➜  Corrección negativa de inventario
+    └─────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    SERVICIOS Y RESPONSABILIDADES                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+    ┌──────────────────────────────────────────────────────────────┐
+    │                    ProductoService                           │
+    ├──────────────────────────────────────────────────────────────┤
+    │ • CRUD de productos                                          │
+    │ • Crear bodega automáticamente al crear producto            │
+    │ • Convertir entidades a DTOs con existencia                 │
+    └──────────────────────────────────────────────────────────────┘
+
+    ┌──────────────────────────────────────────────────────────────┐
+    │                   InventarioService                          │
+    ├──────────────────────────────────────────────────────────────┤
+    │ • registrarEntrada() - Incrementar stock                     │
+    │ • registrarSalida() - Decrementar stock                      │
+    │ • ajustarInventario() - Establecer cantidad exacta           │
+    │ • obtenerHistorialProducto() - Consultar movimientos         │
+    │ • obtenerExistencia() - Obtener stock actual                 │
+    │                                                              │
+    │ ✓ Transaccional                                              │
+    │ ✓ Validaciones de stock                                      │
+    │ ✓ Auditoría completa                                         │
+    └──────────────────────────────────────────────────────────────┘
+
+    ┌──────────────────────────────────────────────────────────────┐
+    │                      VentaService                            │
+    ├──────────────────────────────────────────────────────────────┤
+    │ • Procesar ventas                                            │
+    │ • Validar stock disponible                                   │
+    │ • Usar InventarioService para actualizar stock               │
+    │ • Generar tickets únicos                                     │
+    └──────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         EJEMPLO DE AUDITORÍA                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+    Producto: "Laptop HP" (ID: 1)
+
+    ┌────────────────────────────────────────────────────────────────┐
+    │ Fecha       │ Tipo    │ Cant │ Antes │ Nueva │ Ref      │ User │
+    ├────────────────────────────────────────────────────────────────┤
+    │ 2025-10-01  │ ENTRADA │  50  │   0   │  50   │ OC-001   │  1   │
+    │ 2025-10-02  │ VENTA   │   2  │  50   │  48   │ TKT-123  │  2   │
+    │ 2025-10-03  │ VENTA   │   1  │  48   │  47   │ TKT-124  │  2   │
+    │ 2025-10-04  │ AJUSTE  │   3  │  47   │  50   │ AJUSTE   │  1   │
+    └────────────────────────────────────────────────────────────────┘
+
+    Stock Actual: 50 unidades
+    Total Entradas: 53
+    Total Salidas: 3
+    Movimientos: 4
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         VENTAJAS DEL SISTEMA                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+    ✓ Trazabilidad completa de todos los movimientos
+    ✓ Auditoría: quién, cuándo, por qué se modificó el inventario
+    ✓ Consistencia de datos mediante transacciones
+    ✓ Validaciones automáticas de stock
+    ✓ Base para reportes y análisis
+    ✓ Escalable para múltiples bodegas/sucursales
+    ✓ Preparado para integraciones futuras
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          CONSULTAS ÚTILES                                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+    -- Ver stock actual de todos los productos
+    SELECT p.Producto, b.Existencia 
+    FROM productos p 
+    LEFT JOIN bodega b ON p.IdProducto = b.IdProducto;
+
+    -- Ver historial de un producto
+    SELECT * FROM movimientos_inventario 
+    WHERE IdProducto = 1 
+    ORDER BY Fecha DESC;
+
+    -- Ver movimientos del día
+    SELECT p.Producto, m.TipoMovimiento, m.Cantidad, m.Referencia
+    FROM movimientos_inventario m
+    JOIN productos p ON m.IdProducto = p.IdProducto
+    WHERE DATE(m.Fecha) = CURDATE();
+
+    -- Productos con bajo stock
+    SELECT p.Producto, b.Existencia 
+    FROM productos p 
+    JOIN bodega b ON p.IdProducto = b.IdProducto
+    WHERE b.Existencia < 10;
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                              FIN DEL DIAGRAMA                                ║
+╚══════════════════════════════════════════════════════════════════════════════╝

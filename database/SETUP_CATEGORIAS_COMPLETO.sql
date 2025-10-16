@@ -1,0 +1,17 @@
+DROP TABLE IF EXISTS categorias;
+
+CREATE TABLE categorias (
+    IdCategoria INT AUTO_INCREMENT PRIMARY KEY,
+    Nombre VARCHAR(100) NOT NULL UNIQUE,
+    Descripcion VARCHAR(255),
+    Activo BOOLEAN DEFAULT TRUE,
+    FechaCreacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_nombre (Nombre),
+    INDEX idx_activo (Activo)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE productos 
+ADD COLUMN IF NOT EXISTS IdCategoria INT NULL AFTER Producto,
+ADD COLUMN IF NOT EXISTS ImagenUrl VARCHAR(500) NULL AFTER Descuento;
+
+SELECT 'SISTEMA DE CATEGORIAS LISTO - El admin puede crear sus propias categorias' AS status;
