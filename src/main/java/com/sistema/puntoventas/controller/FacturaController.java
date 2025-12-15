@@ -1,12 +1,16 @@
 package com.sistema.puntoventas.controller;
 
+import com.sistema.puntoventas.dto.FacturaDTO;
 import com.sistema.puntoventas.service.FacturaService;
+import com.sistema.puntoventas.service.VentaService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/facturas")
@@ -15,6 +19,12 @@ import org.springframework.web.bind.annotation.*;
 public class FacturaController {
 
     private final FacturaService facturaService;
+    private final VentaService ventaService;
+
+    @GetMapping
+    public ResponseEntity<List<FacturaDTO>> obtenerTodas() {
+        return ResponseEntity.ok(ventaService.obtenerFacturasAgrupadas());
+    }
 
     @GetMapping("/generar/{ticket}")
     public ResponseEntity<byte[]> generarFactura(@PathVariable String ticket) {

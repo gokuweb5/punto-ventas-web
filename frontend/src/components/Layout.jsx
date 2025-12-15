@@ -70,11 +70,19 @@ export default function Layout() {
           </Link>
           
           <Link
-            to="/configuracion-facturas"
+            to="/facturas"
             className="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
           >
             <FileText className="w-5 h-5 mr-3" />
             Facturas
+          </Link>
+          
+          <Link
+            to="/configuracion-facturas"
+            className="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+          >
+            <FileText className="w-5 h-5 mr-3" />
+            Config. Facturas
           </Link>
         </nav>
 

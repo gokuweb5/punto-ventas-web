@@ -7,10 +7,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.sistema.puntoventas.dto.FacturaDTO;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -102,5 +106,56 @@ public class VentaService {
 
     private String generarTicket() {
         return "TKT-" + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+    }
+
+    @Transactional(readOnly = true)
+    public List<FacturaDTO> obtenerFacturasAgrupadas() {
+        List<Venta> todasLasVentas = ventaRepository.findAll();
+        
+        // Agrupar ventas por ticket
+        Map<String, List<Venta>> ventasPorTicket = todasLasVentas.stream()
+                .collect(Collectors.groupingBy(Venta::getTicket));
+        
+        return ventasPorTicket.entrySet().stream()
+                .map(entry -> {
+                    String ticket = entry.getKey();
+                    List<Venta> ventas = entry.getValue();
+                    Venta primeraVenta = ventas.get(0);
+                    
+                    // Calcular total
+                    BigDecimal total = ventas.stream()
+                            .map(Venta::getImporte)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+                    
+                    // Obtener nombre del cliente
+                    String clienteNombre = "Consumidor Final";
+                    if (primeraVenta.getCliente() != null) {
+                        clienteNombre = primeraVenta.getCliente().getNombre() + " " + 
+                                       primeraVenta.getCliente().getApellido();
+                    }
+                    
+                    // Crear items
+                    List<FacturaDTO.ItemFactura> items = ventas.stream()
+                            .map(v -> FacturaDTO.ItemFactura.builder()
+                                    .codigo(v.getCodigo())
+                                    .descripcion(v.getDescripcion())
+                                    .cantidad(v.getCantidad())
+                                    .precio(v.getPrecio())
+                                    .importe(v.getImporte())
+                                    .build())
+                            .collect(Collectors.toList());
+                    
+                    return FacturaDTO.builder()
+                            .ticket(ticket)
+                            .fecha(primeraVenta.getFecha())
+                            .cliente(clienteNombre)
+                            .total(total)
+                            .cantidadItems(ventas.size())
+                            .credito(primeraVenta.getCredito())
+                            .items(items)
+                            .build();
+                })
+                .sorted((a, b) -> b.getFecha().compareTo(a.getFecha())) // Más recientes primero
+                .collect(Collectors.toList());
     }
 }

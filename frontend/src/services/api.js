@@ -48,4 +48,9 @@ export const categoriasAPI = {
   delete: (id) => api.delete(`/categorias/${id}`),
 }
 
+export const facturasAPI = {
+  getAll: () => api.get('/facturas'),
+  descargar: (ticket) => `http://localhost:8091/api/facturas/generar/${ticket}`,
+}
+
 export default api

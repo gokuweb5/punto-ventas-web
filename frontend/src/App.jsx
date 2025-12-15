@@ -7,6 +7,7 @@ import Ventas from './pages/Ventas'
 import Clientes from './pages/Clientes'
 import Categorias from './pages/Categorias'
 import ConfiguracionFacturas from './pages/ConfiguracionFacturas'
+import Facturas from './pages/Facturas'
 import Layout from './components/Layout'
 
 function PrivateRoute({ children }) {
@@ -33,6 +34,7 @@ function App() {
           <Route path="ventas" element={<Ventas />} />
           <Route path="clientes" element={<Clientes />} />
           <Route path="configuracion-facturas" element={<ConfiguracionFacturas />} />
+          <Route path="facturas" element={<Facturas />} />
         </Route>
       </Routes>
     </Router>
